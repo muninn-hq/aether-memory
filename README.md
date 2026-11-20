@@ -1,6 +1,6 @@
-# Aether Memory Companion
+# AMC (Aether Memory Companion)
 
-Aether Memory Companion connects Obsidian Desktop to an `aether-mcp` vault server so your notes stay synchronized with your agent memory index while private notes remain on disk.
+AMC (Aether Memory Companion) connects Obsidian Desktop to an `aether-mcp` vault server so your notes stay synchronized with your agent memory index while private notes remain on disk.
 
 The plugin requires a running `aether-mcp` control-plane server. You can run `aether-mcp` locally over loopback HTTP (`http://127.0.0.1:14771`) or connect to a remote team gateway over HTTPS with a bearer API key.
 
@@ -13,14 +13,14 @@ You can install the plugin through BRAT, manually from a GitHub release, or with
 1. Install and enable the **Obsidian42 BRAT** plugin.
 2. Open the **BRAT** plugin settings and select **Add beta plugin**.
 3. Enter the dedicated plugin repository (`https://github.com/Nytheris-AI/aether-memory` or your mirrored plugin repository with `manifest.json` at its root) and add the plugin from release assets.
-4. Enable **Aether Memory Companion** under **Community plugins**.
+4. Enable **AMC** under **Community plugins**.
 
 ### Manual release installation
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from a release on GitHub.
 2. Create the directory `<vault>/.obsidian/plugins/aether-memory/`.
 3. Copy `main.js`, `manifest.json`, and `styles.css` into that directory.
-4. Reload Obsidian and enable **Aether Memory Companion** under **Community plugins**.
+4. Reload Obsidian and enable **AMC** under **Community plugins**.
 
 ### CLI setup with `aether-mcp --init`
 
@@ -38,15 +38,15 @@ aether-mcp --vault /path/to/vault --http-addr 127.0.0.1:14771 --http-only
 
 ## Configuration
 
-Open **Settings** and select **Aether Memory Companion** to configure the connection, sync behavior, and optional KV-cache warming. The settings tab stores values in `AetherPluginSettings`.
+Open **Settings** and select **AMC** to configure the connection, sync behavior, and optional KV-cache warming. The settings tab stores values in `AetherPluginSettings`.
 
 ### Connection and authentication
 
 - **Aether control-plane URL.** Sets `endpointUrl` (default `http://127.0.0.1:14771`). Accepts loopback `http://` URLs (`127.0.0.1`, `localhost`, `::1`) or remote `https://` endpoints for `aether-mcp --http-addr`.
 - **API key.** Sets `apiKey` (default empty) using a masked password input. Remote hosts and loopback `https://` endpoints require a bearer token (`aek_...`).
-- **Test connection.** Runs `GET /v1/vault/pull` and shows a notice with the number of indexed notes visible to your token.
+- **Connection card.** Checks the server with `GET /v1/vault/pull` whenever you open the settings tab and after you change the URL or API key. It shows **Connected to aether-mcp** with the number of indexed notes, **Can't reach aether-mcp** with how to start it, or **The server rejected the API key**. Select **Test connection** to check again.
 
-### Live sync and lattice
+### Live sync
 
 - **Live vault sync.** Sets `liveSyncEnabled` (default `true`). Automatically pushes note creates, edits, deletions, and renames after Obsidian finishes loading the workspace layout.
 - **Sync debounce (ms).** Sets `syncDebounceMs` (default `1500`, range `500` to `10000`). Delays rapid create and modify pushes per path while executing deletions and renames immediately in order.
@@ -64,9 +64,9 @@ Most users can ignore it.
 
 ## Obsidian commands
 
-The plugin registers four commands in the Obsidian Command Palette, plus a fifth when GPU KV-cache warming is enabled, and updates the status bar between `Aether: Idle`, `Aether: Syncing…`, `Aether: Synced (HH:mm)`, and `Aether: Offline`. Clicking the status bar item triggers a vault sync.
+The plugin registers four commands in the Obsidian Command Palette, plus a fifth when GPU KV-cache warming is enabled, and updates the status bar between `Aether: Idle`, `Aether: Syncing…`, `Aether: Synced (HH:mm)`, `Aether: Offline`, and `Aether: N to review` when AI agents have proposed memories. Clicking the status bar item opens the inbox when memories are waiting, and otherwise triggers a vault sync.
 
-- **Open Aether inbox review** (`aether-open-inbox-review`). Calls `GET /v1/inbox` and opens the **Aether Memory Inbox** pane in the right sidebar with **Approve** and **Reject** buttons.
+- **Open Aether inbox review** (`aether-open-inbox-review`). Calls `GET /v1/inbox` and opens the **Aether inbox** pane in the right sidebar with **Approve** and **Reject** buttons.
 - **Trigger dream pass** (`aether-trigger-dream-pass`). Calls `POST /v1/dream`, refreshes local mirror notes and pending Inbox counts, and displays a summary notice.
 - **Sync vault with Aether** (`aether-sync-vault`). Pulls the server manifest (`GET /v1/vault/pull`), hashes local Markdown files with SHA-256, pushes changed public notes (`POST /v1/vault/push`), and writes updated `Aether/Inbox.md` and `Aether/Compiled/Approved.md` files back to the vault.
 - **Git sync team vault** (`aether-git-sync`). Calls `POST /v1/git/sync` to fetch, merge, and reconcile vault and Aether lattice conflicts, then refreshes local mirror notes.
@@ -125,5 +125,5 @@ npm run verify:release
 To verify a tagged release archive against a specific SemVer release tag, pass `--tag` without a `v` prefix.
 
 ```bash
-node scripts/verify-release.mjs --tag 0.4.2
+node scripts/verify-release.mjs --tag 0.4.3
 ```
