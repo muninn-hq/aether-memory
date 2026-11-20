@@ -28,7 +28,13 @@ import {
   type ObsidianCommandDescriptor,
   type ObsidianHostAdapter,
 } from '../src/main.ts';
-import {DEFAULT_SETTINGS, normalizePluginSettings} from '../src/settings-model.ts';
+import {
+  buildLocalStartCommand,
+  buildServiceInstallCommand,
+  DEFAULT_SETTINGS,
+  describeConnectionError,
+  normalizePluginSettings,
+} from '../src/settings-model.ts';
 import type {InboxEntry, VaultEvent, VaultStatusReport} from '../src/types.ts';
 
 function createMockHost() {
@@ -653,7 +659,7 @@ describe('Aether Obsidian Companion Plugin', () => {
         notes?: unknown[];
       };
       assert.deepEqual(lastPush.private_paths, ['Arch/DB.md']);
-      assert.deepEqual(lastPush.deleted_paths, ['Arch/DB.md']);
+      assert.deepEqual(lastPush.deleted_paths ?? [], []);
       assert.equal(lastPush.notes?.length ?? 0, 0);
       assert.equal(
         pushedPayloads.some((p) => p.raw.includes('NOW_PRIVATE_BODY')),
@@ -1114,7 +1120,7 @@ describe('Aether Obsidian Release Verification', () => {
   it('verifies tracked plugin files before build and full release directory when main.js is built', () => {
     const pluginRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
     const hasBundle = fs.existsSync(path.join(pluginRoot, 'main.js'));
-    const report = verifyReleaseDirectory(pluginRoot, {tag: '0.4.0'});
+    const report = verifyReleaseDirectory(pluginRoot, {tag: '0.4.1'});
 
     if (hasBundle) {
       assert.equal(report.ok, true, formatVerificationReport(report));
@@ -1137,6 +1143,75 @@ describe('Aether Obsidian Release Verification', () => {
       if (check.id !== 'required-release-artifacts' && check.id !== 'main-bundle-sanity') {
         assert.equal(check.status, 'pass', `${check.id}: ${check.message}`);
       }
+    }
+  });
+});
+
+describe('onboarding command builders', () => {
+  it('formats local start and service install commands from vault path and endpoint URL', () => {
+    assert.equal(
+      buildLocalStartCommand('/Users/alice/My Vault', 'http://127.0.0.1:14771'),
+      'aether-mcp --vault "/Users/alice/My Vault" --http-addr 127.0.0.1:14771 --http-only',
+    );
+    assert.equal(
+      buildServiceInstallCommand('/Users/alice/My Vault', 'http://localhost:15000'),
+      'aether-mcp service install --vault "/Users/alice/My Vault" --http-addr 127.0.0.1:15000',
+    );
+    assert.equal(
+      buildLocalStartCommand('', 'https://aether.team.example.com'),
+      'aether-mcp --vault "/path/to/your/vault" --http-addr 127.0.0.1:14771 --http-only',
+    );
+  });
+});
+
+describe('community plugin manifest', () => {
+  it('leads with the agent memory bridge and follows Obsidian description rules', () => {
+    const pluginRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'manifest.json'), 'utf8'));
+    assert.ok(manifest.description.length <= 250, 'description must be at most 250 characters');
+    assert.ok(manifest.description.endsWith('.'), 'description must end with a period');
+    assert.match(manifest.description, /^Give your AI agents memory/);
+    assert.doesNotMatch(manifest.description, /obsidian/i);
+  });
+});
+
+describe('friendly connection errors', () => {
+  const url = 'http://127.0.0.1:14771';
+
+  it('tells the user to start aether-mcp when the server is unreachable', () => {
+    for (const raw of ['net::ERR_CONNECTION_REFUSED', 'connect ECONNREFUSED 127.0.0.1:14771', 'Failed to fetch']) {
+      const msg = describeConnectionError(new Error(raw), url);
+      assert.ok(msg.includes(`Cannot reach aether-mcp at ${url}`), msg);
+      assert.ok(msg.includes('Local server quickstart'), msg);
+    }
+  });
+
+  it('keeps other errors unchanged', () => {
+    assert.equal(describeConnectionError(new Error('Unauthorized (401)'), url), 'Unauthorized (401)');
+    assert.equal(describeConnectionError('plain string', url), 'plain string');
+  });
+});
+
+describe('advanced KV warming opt-in', () => {
+  it('is off by default and migrates existing KV configuration to on', () => {
+    assert.equal(DEFAULT_SETTINGS.kvWarmingEnabled, false);
+    assert.equal(normalizePluginSettings(null).kvWarmingEnabled, false);
+    assert.equal(normalizePluginSettings({kvModel: 'llama-3.1-8b'}).kvWarmingEnabled, true);
+    assert.equal(normalizePluginSettings({kvEndpoint: 'http://127.0.0.1:8000'}).kvWarmingEnabled, true);
+    assert.equal(normalizePluginSettings({kvModel: 'x', kvWarmingEnabled: false}).kvWarmingEnabled, false);
+  });
+
+  it('only offers the Warm GPU KV Cache command when enabled', async () => {
+    for (const enabled of [false, true]) {
+      const mock = createMockHost();
+      const plugin = new AetherCompanionPlugin(mock.host, 'http://127.0.0.1:14771', {
+        fetchImpl: async () => new Response('{}'),
+        kvWarmingEnabled: enabled,
+      });
+      await plugin.onload().catch(() => undefined);
+      const cmd = mock.commands.get('aether-warm-kv-cache');
+      assert.ok(cmd);
+      assert.equal(cmd.available?.(), enabled);
     }
   });
 });

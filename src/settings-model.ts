@@ -7,6 +7,7 @@ export interface AetherPluginSettings {
   syncDebounceMs: number;
   autoPullIntervalSec: number;
   runDreamOnPush: boolean;
+  kvWarmingEnabled: boolean;
   kvEndpoint: string;
   kvModel: string;
 }
@@ -18,6 +19,7 @@ export const DEFAULT_SETTINGS: AetherPluginSettings = {
   syncDebounceMs: 1500,
   autoPullIntervalSec: 0,
   runDreamOnPush: false,
+  kvWarmingEnabled: false,
   kvEndpoint: '',
   kvModel: '',
 };
@@ -44,6 +46,9 @@ export function normalizePluginSettings(raw: unknown): AetherPluginSettings {
   if (!isPlainObject(raw)) {
     return {...DEFAULT_SETTINGS};
   }
+  const kvEndpoint =
+    typeof raw.kvEndpoint === 'string' ? raw.kvEndpoint.trim() : DEFAULT_SETTINGS.kvEndpoint;
+  const kvModel = typeof raw.kvModel === 'string' ? raw.kvModel.trim() : DEFAULT_SETTINGS.kvModel;
   return {
     endpointUrl:
       typeof raw.endpointUrl === 'string' && raw.endpointUrl.trim().length > 0
@@ -63,8 +68,63 @@ export function normalizePluginSettings(raw: unknown): AetherPluginSettings {
       typeof raw.runDreamOnPush === 'boolean'
         ? raw.runDreamOnPush
         : DEFAULT_SETTINGS.runDreamOnPush,
-    kvEndpoint:
-      typeof raw.kvEndpoint === 'string' ? raw.kvEndpoint.trim() : DEFAULT_SETTINGS.kvEndpoint,
-    kvModel: typeof raw.kvModel === 'string' ? raw.kvModel.trim() : DEFAULT_SETTINGS.kvModel,
+    // Existing KV configuration keeps the feature on after upgrading; new installs start with it off.
+    kvWarmingEnabled:
+      typeof raw.kvWarmingEnabled === 'boolean'
+        ? raw.kvWarmingEnabled
+        : kvEndpoint.length > 0 || kvModel.length > 0,
+    kvEndpoint,
+    kvModel,
   };
+}
+
+export const AETHER_MCP_INSTALL_COMMAND =
+  'curl -fsSL https://raw.githubusercontent.com/Nytheris-AI/aether-sdk/main/scripts/install.sh | sh';
+
+export const AETHER_MCP_WINDOWS_INSTALL_COMMAND =
+  'irm https://raw.githubusercontent.com/Nytheris-AI/aether-sdk/main/scripts/install.ps1 | iex';
+
+function resolveLocalHttpAddr(endpointUrl: string): string {
+  try {
+    const parsed = new URL(endpointUrl);
+    if (
+      parsed.protocol === 'http:' &&
+      (parsed.hostname === '127.0.0.1' ||
+        parsed.hostname === 'localhost' ||
+        parsed.hostname === '::1')
+    ) {
+      const host = parsed.hostname === 'localhost' ? '127.0.0.1' : parsed.hostname;
+      const port = parsed.port || '14771';
+      return host.includes(':') ? `[${host}]:${port}` : `${host}:${port}`;
+    }
+  } catch {
+    // Fall back to default loopback socket address.
+  }
+  return '127.0.0.1:14771';
+}
+
+function formatQuotedVaultPath(vaultPath: string): string {
+  const trimmed = vaultPath.trim() || '/path/to/your/vault';
+  return `"${trimmed.replace(/"/g, '\\"')}"`;
+}
+
+export function buildLocalStartCommand(vaultPath: string, endpointUrl: string): string {
+  const addr = resolveLocalHttpAddr(endpointUrl);
+  return `aether-mcp --vault ${formatQuotedVaultPath(vaultPath)} --http-addr ${addr} --http-only`;
+}
+
+export function buildServiceInstallCommand(vaultPath: string, endpointUrl: string): string {
+  const addr = resolveLocalHttpAddr(endpointUrl);
+  return `aether-mcp service install --vault ${formatQuotedVaultPath(vaultPath)} --http-addr ${addr}`;
+}
+
+const UNREACHABLE = /ERR_CONNECTION|ECONNREFUSED|ERR_NAME_NOT_RESOLVED|ENOTFOUND|Failed to fetch/i;
+
+/** Turns a raw network failure into an actionable message; other errors pass through unchanged. */
+export function describeConnectionError(err: unknown, endpointUrl: string): string {
+  const detail = err instanceof Error ? err.message : String(err);
+  if (UNREACHABLE.test(detail)) {
+    return `Cannot reach aether-mcp at ${endpointUrl}. Is it running? Use "Local server quickstart" in the plugin settings to install and start it.`;
+  }
+  return detail;
 }

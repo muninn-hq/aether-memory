@@ -1,6 +1,11 @@
 import {type App, Notice, Plugin, PluginSettingTab, Setting} from 'obsidian';
 import {
+  AETHER_MCP_INSTALL_COMMAND,
+  AETHER_MCP_WINDOWS_INSTALL_COMMAND,
   type AetherPluginSettings,
+  buildLocalStartCommand,
+  buildServiceInstallCommand,
+  describeConnectionError,
   DEFAULT_SETTINGS,
   normalizeNonNegativeInt,
   normalizePluginSettings,
@@ -16,6 +21,15 @@ export interface AetherSettingsPluginHost extends Plugin {
   testConnection(): Promise<VaultPullResponse>;
 }
 
+async function copyCommandToClipboard(command: string, label: string): Promise<void> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(command);
+    new Notice(`Copied ${label} to clipboard.`);
+    return;
+  }
+  new Notice(command);
+}
+
 export class AetherSettingTab extends PluginSettingTab {
   private readonly plugin: AetherSettingsPluginHost;
 
@@ -29,6 +43,11 @@ export class AetherSettingTab extends PluginSettingTab {
     containerEl.replaceChildren();
 
     new Setting(containerEl).setName('Connection & Auth').setHeading();
+
+    containerEl.createEl('p', {
+      cls: 'setting-item-description',
+      text: 'This plugin needs the aether-mcp server running on your machine or on a team gateway. Use Local server quickstart below to install and start it, then run Test Connection.',
+    });
 
     new Setting(containerEl)
       .setName('Aether control-plane URL')
@@ -71,12 +90,44 @@ export class AetherSettingTab extends PluginSettingTab {
               const count = Object.keys(pulled.manifest).length;
               new Notice(`Aether connected: ${count} indexed note(s) visible.`);
             } catch (err) {
-              const message = err instanceof Error ? err.message : String(err);
+              const message = describeConnectionError(err, this.plugin.settings.endpointUrl);
               new Notice(`Aether connection failed: ${message}`);
             } finally {
               btn.setDisabled(false);
             }
           }),
+      );
+
+    new Setting(containerEl)
+      .setName('Local server quickstart')
+      .setDesc(
+        'Copy commands to install aether-mcp, register it as a background service, or run it in a terminal.',
+      )
+      .addButton((btn) =>
+        btn.setButtonText('Copy Install').onClick(async () => {
+          const isWindows =
+            typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('win');
+          const cmd = isWindows ? AETHER_MCP_WINDOWS_INSTALL_COMMAND : AETHER_MCP_INSTALL_COMMAND;
+          await copyCommandToClipboard(cmd, 'install command');
+        }),
+      )
+      .addButton((btn) =>
+        btn.setButtonText('Copy Service Install').onClick(async () => {
+          const cmd = buildServiceInstallCommand(
+            this.resolveVaultBasePath(),
+            this.plugin.settings.endpointUrl,
+          );
+          await copyCommandToClipboard(cmd, 'service install command');
+        }),
+      )
+      .addButton((btn) =>
+        btn.setButtonText('Copy Start').onClick(async () => {
+          const cmd = buildLocalStartCommand(
+            this.resolveVaultBasePath(),
+            this.plugin.settings.endpointUrl,
+          );
+          await copyCommandToClipboard(cmd, 'start command');
+        }),
       );
 
     new Setting(containerEl).setName('Live Sync & Lattice').setHeading();
@@ -129,33 +180,53 @@ export class AetherSettingTab extends PluginSettingTab {
         }),
       );
 
-    new Setting(containerEl).setName('Inference & KV-Warming').setHeading();
+    new Setting(containerEl).setName('Advanced: GPU KV-cache warming (optional)').setHeading();
 
     new Setting(containerEl)
-      .setName('KV endpoint (optional)')
-      .setDesc('Inference endpoint associated with KV-cache warming telemetry.')
-      .addText((text) =>
-        text
-          .setPlaceholder('http://127.0.0.1:8000')
-          .setValue(this.plugin.settings.kvEndpoint)
-          .onChange(async (value) => {
-            this.plugin.settings.kvEndpoint = value.trim();
-            await this.applyAndPersist();
-          }),
+      .setName('Enable GPU KV-cache warming')
+      .setDesc(
+        'For self-hosted vLLM or SGLang setups only. Adds the "Warm GPU KV Cache" command. Most users can leave this off.',
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.kvWarmingEnabled).onChange(async (value) => {
+          this.plugin.settings.kvWarmingEnabled = value;
+          await this.applyAndPersist();
+          this.display();
+        }),
       );
 
-    new Setting(containerEl)
-      .setName('Default KV model')
-      .setDesc('Target model_id passed by the Warm GPU KV Cache command.')
-      .addText((text) =>
-        text
-          .setPlaceholder('llama-3.1-8b')
-          .setValue(this.plugin.settings.kvModel)
-          .onChange(async (value) => {
-            this.plugin.settings.kvModel = value.trim();
-            await this.applyAndPersist();
-          }),
-      );
+    if (this.plugin.settings.kvWarmingEnabled) {
+      new Setting(containerEl)
+        .setName('KV endpoint (optional)')
+        .setDesc('Inference endpoint associated with KV-cache warming telemetry.')
+        .addText((text) =>
+          text
+            .setPlaceholder('http://127.0.0.1:8000')
+            .setValue(this.plugin.settings.kvEndpoint)
+            .onChange(async (value) => {
+              this.plugin.settings.kvEndpoint = value.trim();
+              await this.applyAndPersist();
+            }),
+        );
+
+      new Setting(containerEl)
+        .setName('Default KV model')
+        .setDesc('Target model_id passed by the Warm GPU KV Cache command.')
+        .addText((text) =>
+          text
+            .setPlaceholder('llama-3.1-8b')
+            .setValue(this.plugin.settings.kvModel)
+            .onChange(async (value) => {
+              this.plugin.settings.kvModel = value.trim();
+              await this.applyAndPersist();
+            }),
+        );
+    }
+  }
+
+  private resolveVaultBasePath(): string {
+    const adapter = this.app.vault.adapter as {basePath?: unknown};
+    return typeof adapter.basePath === 'string' ? adapter.basePath : '';
   }
 
   private async applyAndPersist(): Promise<void> {
