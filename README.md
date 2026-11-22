@@ -1,94 +1,40 @@
-<div align="center">
-
-<img src="assets/aether-banner.png" alt="Aether Memory Companion Banner" width="100%" />
-
-<br />
-
-<img src="assets/aether-logo.png" alt="Aether Logo" width="84" />
-
 # AMC (Aether Memory Companion)
 
-**Your Obsidian vault, every AI agent's memory.**  
-Privacy-preserving two-way vault sync, Inbox memory review, Git lattice sync, and KV-cache warming for [`aether-mcp`](https://github.com/muninn-hq/aether-sdk).
+AMC (Aether Memory Companion) connects Obsidian Desktop to an `aether-mcp` vault server so your notes stay synchronized with your agent memory index while private notes remain on disk.
 
-[![Release](https://img.shields.io/github/v/release/muninn-hq/aether-memory?label=Release&color=38BDF8)](https://github.com/muninn-hq/aether-memory/releases/latest)
-[![Obsidian](https://img.shields.io/badge/Obsidian-1.5.0%2B-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-38BDF8.svg)](LICENSE)
-[![Aether SDK](https://img.shields.io/badge/Powered%20by-Aether%20SDK-F97316)](https://github.com/muninn-hq/aether-sdk)
-
-[Launch video](#launch-video) · [How it works](#how-it-works) · [Installation](#installation) · [Configuration](#configuration) · [Commands](#obsidian-commands) · [Privacy](#privacy-and-network-disclosure) · [Aether SDK](https://github.com/muninn-hq/aether-sdk) · [Docs](https://muninn-hq.github.io/aether-sdk/)
-
-</div>
-
----
-
-## Launch video
-
-<div align="center">
-
-<a href="assets/aether-obsidian-launch.mp4">
-  <img src="assets/aether-obsidian-launch.gif" alt="AMC (Aether Memory Companion) launch video preview" width="100%" />
-</a>
-
-<br />
-
-<sub><a href="assets/aether-obsidian-launch.mp4">Watch the full 1080p60 launch video with audio (MP4)</a></sub>
-
-</div>
-
----
-
-## How it works
-
-AMC connects Obsidian Desktop to an `aether-mcp` control-plane server so your public notes stay indexed for AI agents while private notes never leave disk.
-
-```mermaid
-flowchart LR
-    Vault["Obsidian Vault"] -->|"Client-side filter: aether_tier: private & .aetherignore"| Filter["AMC Plugin"]
-    Filter -->|"Public notes (SHA-256 delta push)"| Server["aether-mcp (127.0.0.1:14771 or HTTPS)"]
-    Server -->|"Aether/Inbox.md & Aether/Compiled/Approved.md"| Filter
-    Server <-->|"MCP / OpenAPI 3.1"| Agents["Claude · Cursor · ChatGPT · Rust Agents"]
-```
-
-- **Client-side privacy boundary.** Notes marked `aether_tier: private` or matched by `.aetherignore` are filtered locally before any HTTP request is built.
-- **Human-in-the-loop memory review.** AI agents propose new memories to `aether-mcp`, and you approve or reject them from the **Aether inbox** sidebar pane before they enter `Aether/Compiled/Approved.md`.
-- **Local-first or team gateway.** Run `aether-mcp` locally over loopback HTTP (`http://127.0.0.1:14771`) or connect to a remote team gateway over HTTPS with a scoped bearer API key (`aek_...`).
-
----
+The plugin requires a running `aether-mcp` control-plane server. You can run `aether-mcp` locally over loopback HTTP (`http://127.0.0.1:14771`) or connect to a remote team gateway over HTTPS with a bearer API key.
 
 ## Installation
 
-You can install AMC through BRAT, manually from a GitHub release, or with the `aether-mcp` CLI.
+You can install the plugin through BRAT, manually from a GitHub release, or with the `aether-mcp` CLI.
 
 ### BRAT
 
 1. Install and enable the **Obsidian42 BRAT** plugin.
 2. Open the **BRAT** plugin settings and select **Add beta plugin**.
-3. Enter `https://github.com/muninn-hq/aether-memory` and add the plugin from release assets.
+3. Enter the dedicated plugin repository (`https://github.com/muninn-hq/aether-memory` or your mirrored plugin repository with `manifest.json` at its root) and add the plugin from release assets.
 4. Enable **AMC** under **Community plugins**.
 
 ### Manual release installation
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/muninn-hq/aether-memory/releases/latest).
+1. Download `main.js`, `manifest.json`, and `styles.css` from a release on GitHub.
 2. Create the directory `<vault>/.obsidian/plugins/aether-memory/`.
 3. Copy `main.js`, `manifest.json`, and `styles.css` into that directory.
 4. Reload Obsidian and enable **AMC** under **Community plugins**.
 
 ### CLI setup with `aether-mcp --init`
 
-Install [`aether-mcp`](https://github.com/muninn-hq/aether-sdk#3-run-the-obsidian-vault-mcp-server-aether-mcp) and run `--init` to install the plugin bundle into your vault and generate your `mcp.json` configuration snippet:
+Run `aether-mcp` with `--init` after building the plugin locally to install the bundle into your vault and print an `mcp.json` configuration snippet.
 
 ```bash
 aether-mcp --init --vault /path/to/vault --http-addr 127.0.0.1:14771
 ```
 
-Start the HTTP control plane before syncing in Obsidian, or install it as an auto-starting service with `aether-mcp service install --vault /path/to/vault`. The **Local server quickstart** buttons in plugin settings copy these commands with your vault path pre-filled.
+Start the HTTP control plane before syncing in Obsidian (or install it as an auto-starting service with `aether-mcp service install --vault /path/to/vault`). The **Local server quickstart** buttons in plugin settings can copy these commands with your vault path pre-filled.
 
 ```bash
 aether-mcp --vault /path/to/vault --http-addr 127.0.0.1:14771 --http-only
 ```
-
----
 
 ## Configuration
 
@@ -109,25 +55,22 @@ Open **Settings** and select **AMC** to configure the connection, sync behavior,
 
 ### Advanced: GPU KV-cache warming
 
-This section is for users who run their own vLLM or SGLang server and want the vault's most-used context kept warm in its KV cache. Most users can leave this off.
+This section is for people who run their own vLLM or SGLang server and want the vault's most-used context kept warm in its KV cache.
+Most users can ignore it.
 
 - **Enable GPU KV-cache warming.** Sets `kvWarmingEnabled` (default `false`). Shows the two settings below and adds the **Warm GPU KV cache** command. Existing installs that already set a KV endpoint or model keep the feature on after upgrading.
 - **KV endpoint (optional).** Sets `kvEndpoint` (default empty). Records the inference endpoint associated with KV-cache warming telemetry.
 - **Default KV model.** Sets `kvModel` (default empty in settings, falling back to `llama-3.1-8b` in `AetherCompanionPlugin`). Sets the `model_id` parameter sent by the **Warm GPU KV cache** command.
 
----
-
 ## Obsidian commands
 
-The plugin registers four commands in the Obsidian Command Palette, plus a fifth when GPU KV-cache warming is enabled. The status bar updates between `Aether: Idle`, `Aether: Syncing…`, `Aether: Synced (HH:mm)`, `Aether: Offline`, and `Aether: N to review` when AI agents propose memories. Clicking the status bar item opens the inbox when memories are waiting, and otherwise triggers a vault sync.
+The plugin registers four commands in the Obsidian Command Palette, plus a fifth when GPU KV-cache warming is enabled, and updates the status bar between `Aether: Idle`, `Aether: Syncing…`, `Aether: Synced (HH:mm)`, `Aether: Offline`, and `Aether: N to review` when AI agents have proposed memories. Clicking the status bar item opens the inbox when memories are waiting, and otherwise triggers a vault sync.
 
 - **Open Aether inbox review** (`aether-open-inbox-review`). Calls `GET /v1/inbox` and opens the **Aether inbox** pane in the right sidebar with **Approve** and **Reject** buttons.
 - **Trigger dream pass** (`aether-trigger-dream-pass`). Calls `POST /v1/dream`, refreshes local mirror notes and pending Inbox counts, and displays a summary notice.
 - **Sync vault with Aether** (`aether-sync-vault`). Pulls the server manifest (`GET /v1/vault/pull`), hashes local Markdown files with SHA-256, pushes changed public notes (`POST /v1/vault/push`), and writes updated `Aether/Inbox.md` and `Aether/Compiled/Approved.md` files back to the vault.
 - **Git sync team vault** (`aether-git-sync`). Calls `POST /v1/git/sync` to fetch, merge, and reconcile vault and Aether lattice conflicts, then refreshes local mirror notes.
 - **Warm GPU KV cache** (`aether-warm-kv-cache`, only when **Enable GPU KV-cache warming** is on). Calls `POST /v1/kv/warm` for the configured default KV model and reports warmed blocks, tokens, and estimated time-to-first-token reduction.
-
----
 
 ## Frontmatter and exclusions
 
@@ -153,14 +96,12 @@ Create `.aetherhot` at the vault root using the same pattern syntax to promote m
 
 ### Built-in exclusions
 
-`isIgnoredVaultPath` skips these paths before reading or uploading file contents:
+`isIgnoredVaultPath` skips these paths before reading or uploading file contents.
 
 - Non-Markdown files.
 - Any path containing `.obsidian`, `.git`, `.trash`, or `.aether`.
 - Vault mirror and plugin state prefixes `Aether/Inbox.md`, `Aether/Compiled`, and `.obsidian/plugins/aether-memory/data.json`.
 - Drawing files ending with `.canvas`, `.excalidraw`, or `.excalidraw.md`.
-
----
 
 ## Privacy and network disclosure
 
@@ -169,11 +110,9 @@ Create `.aetherhot` at the vault root using the same pattern syntax to promote m
 - **Transport policy.** `assertControlPlaneBaseUrl` rejects non-loopback plain `http://` URLs by default and requires an API key for any non-loopback endpoint or loopback `https://` endpoint.
 - **Local credential storage.** Obsidian stores your `apiKey` and plugin configuration locally in `<vault>/.obsidian/plugins/aether-memory/data.json` through `saveData`. Keep `.obsidian/plugins/aether-memory/data.json` out of version control.
 
----
-
 ## Development
 
-Install dependencies, run unit tests, check types, build the production bundle `main.js`, and verify release compliance:
+Install dependencies, run unit tests, check types, build the production bundle `main.js`, and verify release compliance from `obsidian-aether-plugin/`.
 
 ```bash
 npm ci
@@ -183,14 +122,8 @@ npm run build
 npm run verify:release
 ```
 
-To verify a tagged release archive against a specific SemVer release tag, pass `--tag` without a `v` prefix:
+To verify a tagged release archive against a specific SemVer release tag, pass `--tag` without a `v` prefix.
 
 ```bash
-node scripts/verify-release.mjs --tag 0.4.3
+node scripts/verify-release.mjs --tag 0.4.4
 ```
-
----
-
-## License
-
-Apache-2.0. See [LICENSE](LICENSE).

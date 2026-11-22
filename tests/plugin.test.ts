@@ -907,12 +907,12 @@ function createValidReleaseFixture() {
     version: '0.4.0',
     minAppVersion: '1.5.0',
     description: 'Privacy-preserving two-way vault sync, Git lattice sync, and KV-cache warming for Aether MCP.',
-    author: 'Nytheris',
-    authorUrl: 'https://github.com/Nytheris-AI/aether-sdk',
+    author: 'Muninn Labs',
+    authorUrl: 'https://github.com/muninn-hq/aether-sdk',
     isDesktopOnly: true,
   };
   const pkg = {
-    name: 'nytheris-aether-obsidian-plugin',
+    name: 'muninn-aether-obsidian-plugin',
     version: '0.4.0',
     private: true,
     type: 'module',
@@ -1127,7 +1127,7 @@ describe('Aether Obsidian Release Verification', () => {
   it('verifies tracked plugin files before build and full release directory when main.js is built', () => {
     const pluginRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
     const hasBundle = fs.existsSync(path.join(pluginRoot, 'main.js'));
-    const report = verifyReleaseDirectory(pluginRoot, {tag: '0.4.3'});
+    const report = verifyReleaseDirectory(pluginRoot, {tag: '0.4.4'});
 
     if (hasBundle) {
       assert.equal(report.ok, true, formatVerificationReport(report));
