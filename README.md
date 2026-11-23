@@ -6,13 +6,13 @@
 
 <img src="assets/aether-logo.png" alt="Aether Logo" width="84" />
 
-# AMC (Aether Memory Companion)
+# Aether Memory
 
 **Your Obsidian vault, every AI agent's memory.**  
 Privacy-preserving two-way vault sync, Inbox memory review, Git lattice sync, and KV-cache warming for [`aether-mcp`](https://github.com/muninn-hq/aether-sdk).
 
 [![Release](https://img.shields.io/github/v/release/muninn-hq/aether-memory?label=Release&color=38BDF8)](https://github.com/muninn-hq/aether-memory/releases/latest)
-[![Obsidian](https://img.shields.io/badge/Obsidian-1.5.0%2B-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md)
+[![Obsidian](https://img.shields.io/badge/Obsidian-1.7.2%2B-7C3AED?logo=obsidian&logoColor=white)](https://community.obsidian.md/plugins/aether-memory)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-38BDF8.svg)](LICENSE)
 [![Aether SDK](https://img.shields.io/badge/Powered%20by-Aether%20SDK-F97316)](https://github.com/muninn-hq/aether-sdk)
 
@@ -58,21 +58,20 @@ flowchart LR
 
 ## Installation
 
-You can install AMC through BRAT, manually from a GitHub release, or with the `aether-mcp` CLI.
+You can install **Aether Memory** directly from Obsidian **Community plugins**, manually from a GitHub release, or with the `aether-mcp` CLI.
 
-### BRAT
+### Obsidian Community plugins (recommended)
 
-1. Install and enable the **Obsidian42 BRAT** plugin.
-2. Open the **BRAT** plugin settings and select **Add beta plugin**.
-3. Enter `https://github.com/muninn-hq/aether-memory` and add the plugin from release assets.
-4. Enable **AMC** under **Community plugins**.
+1. Open **Settings → Community plugins** in Obsidian Desktop (`1.7.2` or later) and turn off Restricted Mode if prompted.
+2. Select **Browse**, search for **Aether Memory** (or open [Aether Memory in the Obsidian Community directory](https://community.obsidian.md/plugins/aether-memory)), and select **Install**.
+3. Select **Enable**.
 
 ### Manual release installation
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/muninn-hq/aether-memory/releases/latest).
 2. Create the directory `<vault>/.obsidian/plugins/aether-memory/`.
 3. Copy `main.js`, `manifest.json`, and `styles.css` into that directory.
-4. Reload Obsidian and enable **AMC** under **Community plugins**.
+4. Reload Obsidian and enable **Aether Memory** under **Community plugins**.
 
 ### CLI setup with `aether-mcp --init`
 
@@ -92,7 +91,7 @@ aether-mcp --vault /path/to/vault --http-addr 127.0.0.1:14771 --http-only
 
 ## Configuration
 
-Open **Settings** and select **AMC** to configure the connection, sync behavior, and optional KV-cache warming. The settings tab stores values in `AetherPluginSettings`.
+Open **Settings** and select **Aether Memory** to configure the connection, sync behavior, and optional KV-cache warming. The settings tab stores values in `AetherPluginSettings`.
 
 ### Connection and authentication
 
@@ -186,7 +185,7 @@ npm run verify:release
 To verify a tagged release archive against a specific SemVer release tag, pass `--tag` without a `v` prefix:
 
 ```bash
-node scripts/verify-release.mjs --tag 0.4.4
+node scripts/verify-release.mjs --tag 0.4.5
 ```
 
 ---
